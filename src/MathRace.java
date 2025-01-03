@@ -7,6 +7,8 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
+import javax.sound.sampled.*;
+
 
 class MathRacePanel extends JPanel implements ActionListener {
     private int carX = 472;
@@ -20,11 +22,16 @@ class MathRacePanel extends JPanel implements ActionListener {
     private final Random random;
     private int score = 0;
     private int nextMathChallengeScore = 50;
-    private final int maxScore = 500;
+    private final int maxScore = 1000;
     private int hearts = 3;
     private boolean isGameStarted = false; // Flaga dla stanu gry
     private boolean isGamePaused = false; // Flaga dla zatrzymanej gry
-
+    private boolean isMuted = false; // Flaga określająca stan muzyk
+    private int currentLevel = 1;
+    private final int level1Score = 200;
+    private final int level2Score = 400;
+    private final int level3Score = 600;
+    private int elementSpeed = 10;
     // Zmienne dla obrazów
     private Image carImage;
     private Image coinImage;
@@ -35,7 +42,36 @@ class MathRacePanel extends JPanel implements ActionListener {
     // Zmienna dla przycisku "MENU"
     private JButton menuButton;
 
+    private Clip backgroundMusic; // Pole na odtwarzacz muzyki
+
+    private void playBackgroundMusic() {
+        try {
+            // Wczytanie pliku dźwiękowego
+            AudioInputStream audioStream = AudioSystem.getAudioInputStream(getClass().getResource("/assets/muzyka.wav"));
+            backgroundMusic = AudioSystem.getClip();
+            backgroundMusic.open(audioStream);
+            backgroundMusic.loop(Clip.LOOP_CONTINUOUSLY); // Zapętlenie muzyki
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void stopBackgroundMusic() {
+        if (backgroundMusic != null && backgroundMusic.isRunning()) {
+            backgroundMusic.stop();
+        }
+    }
+
+    private void resumeBackgroundMusic() {
+        if (backgroundMusic != null && !backgroundMusic.isRunning()) {
+            backgroundMusic.loop(Clip.LOOP_CONTINUOUSLY);
+        }
+    }
+
     public MathRacePanel() {
+
+        playBackgroundMusic();
+
         this.setFocusable(true);
         this.setPreferredSize(new Dimension(1050, 800));
         this.setBackground(Color.GRAY);
@@ -67,6 +103,25 @@ class MathRacePanel extends JPanel implements ActionListener {
             }
         });
         this.add(menuButton);
+
+
+
+        JButton muteButton = new JButton("WYCISZ");
+        muteButton.setBounds(950, 50, 80, 30);
+        muteButton.setBackground(Color.GRAY);
+        muteButton.setForeground(Color.WHITE);
+        muteButton.addActionListener(e -> {
+            if (isMuted) {
+                resumeBackgroundMusic();
+                muteButton.setText("WYCISZ");
+            } else {
+                stopBackgroundMusic();
+                muteButton.setText("WŁĄCZ MUZYKĘ");
+            }
+            isMuted = !isMuted; // Zmiana stanu wyciszenia
+        });
+        this.add(muteButton);
+
 
         JButton startButton = new JButton("START");
         startButton.setBounds(460, 370, 130, 50);
@@ -185,10 +240,18 @@ class MathRacePanel extends JPanel implements ActionListener {
         isGamePaused = false;
         score = 0;
         hearts = 3;
+        currentLevel = 1; // Przywrócenie poziomu 1
+        carX = 472; // Ustawienie samochodu w pozycji początkowej
         obstacles.clear();
         coins.clear();
         flags.clear();
         repaint();
+
+        // Po resecie, przycisk Start powinien być widoczny
+        Component startButton = getComponentAt(460, 370);  // Zlokalizowanie przycisku Start
+        if (startButton instanceof JButton) {
+            startButton.setVisible(true); // Przywrócenie widoczności przycisku Start
+        }
     }
 
     @Override
@@ -236,20 +299,6 @@ class MathRacePanel extends JPanel implements ActionListener {
     }
 
 
-
-    private void updateElements(ArrayList<Rectangle> elements, int speed) {
-        Iterator<Rectangle> iterator = elements.iterator();
-        while (iterator.hasNext()) {
-            Rectangle element = iterator.next();
-            element.y += speed;
-            if (element.y > getHeight()) {
-                iterator.remove();
-            }
-        }
-    }
-
-
-
     @Override
     public void actionPerformed(ActionEvent e) {
         if (!isGameStarted || isGamePaused) return; // Gra działa tylko po kliknięciu START
@@ -257,7 +306,7 @@ class MathRacePanel extends JPanel implements ActionListener {
         // Sprawdzanie, czy osiągnięto maksymalny wynik
         if (score >= maxScore) {
             timer.stop();
-            JOptionPane.showMessageDialog(this, "Brawo! Ukończyłeś poziom!");
+            JOptionPane.showMessageDialog(this, "Brawo! Osiągnąłeś maksymalny wynik!");
             System.exit(0); // Kończenie gry
         }
 
@@ -283,11 +332,32 @@ class MathRacePanel extends JPanel implements ActionListener {
             flags.add(new Rectangle(flagX, 0, 55, 55));
         }
 
+        // Obsługa progresji poziomów
+        if (score >= level3Score) {
+            timer.stop();
+            JOptionPane.showMessageDialog(this, "Gratulacje! Ukończyłeś wszystkie poziomy!");
+            System.exit(0); // Kończenie gry
+        } else if (score >= level2Score && currentLevel == 2) {
+            timer.stop();
+            currentLevel++;
+            elementSpeed += 3; // Przyspieszenie na Poziomie 3
+            resetLevel(); // Reset wyniku i innych elementów
+            JOptionPane.showMessageDialog(this, "Poziom 2 ukończony! Czas na Poziom 3.");
+            timer.start();
+        } else if (score >= level1Score && currentLevel == 1) {
+            timer.stop();
+            currentLevel++;
+            elementSpeed += 3; // Przyspieszenie na Poziomie 2
+            resetLevel(); // Reset wyniku i innych elementów
+            JOptionPane.showMessageDialog(this, "Poziom 1 ukończony! Czas na Poziom 2.");
+            timer.start();
+        }
+
         // Przesuwanie i obsługa kolizji dla przeszkód
         Iterator<Rectangle> obstacleIterator = obstacles.iterator();
         while (obstacleIterator.hasNext()) {
             Rectangle obstacle = obstacleIterator.next();
-            obstacle.y += 10;
+            obstacle.y += elementSpeed; // Używamy dynamicznej prędkości
             if (obstacle.y > getHeight()) {
                 obstacleIterator.remove();
             } else if (obstacle.intersects(new Rectangle(carX, carY, carWidth, carHeight))) {
@@ -305,7 +375,7 @@ class MathRacePanel extends JPanel implements ActionListener {
         Iterator<Rectangle> coinIterator = coins.iterator();
         while (coinIterator.hasNext()) {
             Rectangle coin = coinIterator.next();
-            coin.y += 10;
+            coin.y += elementSpeed; // Używamy dynamicznej prędkości
             if (coin.y > getHeight()) {
                 coinIterator.remove();
             } else if (coin.intersects(new Rectangle(carX, carY, carWidth, carHeight))) {
@@ -318,7 +388,7 @@ class MathRacePanel extends JPanel implements ActionListener {
         Iterator<Rectangle> flagIterator = flags.iterator();
         while (flagIterator.hasNext()) {
             Rectangle flag = flagIterator.next();
-            flag.y += 10;
+            flag.y += elementSpeed; // Używamy dynamicznej prędkości
             if (flag.y > getHeight()) {
                 flagIterator.remove();
             } else if (flag.intersects(new Rectangle(carX, carY, carWidth, carHeight))) {
@@ -330,30 +400,53 @@ class MathRacePanel extends JPanel implements ActionListener {
         repaint(); // Odświeżenie ekranu po każdej klatce
     }
 
+
+    private void resetLevel() {
+        score = 0;
+        nextMathChallengeScore = 50; // Przywrócenie początkowego stanu
+        obstacles.clear();
+        coins.clear();
+        flags.clear();
+        hearts = 3; // Reset liczby serc
+        repaint(); // Odświeżenie ekranu
+    }
+
     // Funkcja wyświetlająca zadanie matematyczne
     private void showMathChallenge() {
-        int a = random.nextInt(10) + 1; // Losowa liczba od 1 do 10
-        int b = random.nextInt(10) + 1; // Losowa liczba od 1 do 10
-        String[] operators = {"+", "-", "*"};
-        String operator = operators[random.nextInt(operators.length)];
+        int a = random.nextInt(10) + 1;
+        int b = random.nextInt(10) + 1;
+        String question = "";
+        int correctAnswer = 0;
 
-        int correctAnswer;
-        String question;
-
-        switch (operator) {
-            case "+" -> {
+        if (currentLevel == 1) { // Poziom 1: dodawanie i odejmowanie
+            if (random.nextBoolean()) {
                 correctAnswer = a + b;
                 question = a + " + " + b + " = ?";
-            }
-            case "-" -> {
+            } else {
                 correctAnswer = a - b;
                 question = a + " - " + b + " = ?";
             }
-            case "*" -> {
+        } else if (currentLevel == 2) { // Poziom 2: mnożenie i dzielenie
+            if (random.nextBoolean()) {
                 correctAnswer = a * b;
                 question = a + " * " + b + " = ?";
+            } else {
+                // Unikamy dzielenia przez zero i wyników z resztą
+                while (a % b != 0) {
+                    a = random.nextInt(10) + 1;
+                    b = random.nextInt(9) + 1; // Losujemy ponownie b
+                }
+                correctAnswer = a / b;
+                question = a + " / " + b + " = ?";
             }
-            default -> throw new IllegalStateException("Unexpected value: " + operator);
+        } else if (currentLevel == 3) { // Poziom 3: potęgowanie i pierwiastkowanie
+            if (random.nextBoolean()) {
+                correctAnswer = (int) Math.pow(a, 2);
+                question = a + "² = ?";
+            } else {
+                correctAnswer = (int) Math.sqrt(a * a);
+                question = "√" + (a * a) + " = ?";
+            }
         }
 
         String answer = JOptionPane.showInputDialog(this, question, "Zadanie matematyczne", JOptionPane.QUESTION_MESSAGE);
@@ -362,19 +455,18 @@ class MathRacePanel extends JPanel implements ActionListener {
             if (Integer.parseInt(answer) == correctAnswer) {
                 JOptionPane.showMessageDialog(this, "Brawo! Poprawna odpowiedź!");
             } else {
-                hearts--; // Odejmij życie za błędną odpowiedź
+                hearts--;
                 JOptionPane.showMessageDialog(this, "Błędna odpowiedź! Tracisz jedno życie.");
             }
         } catch (NumberFormatException ex) {
-            hearts--; // Odejmij życie, jeśli wpisano niepoprawną wartość
+            hearts--;
             JOptionPane.showMessageDialog(this, "Nieprawidłowy format odpowiedzi! Tracisz jedno życie.");
         }
 
-        // Sprawdź, czy liczba żyć spadła do zera
         if (hearts <= 0) {
             timer.stop();
-            JOptionPane.showMessageDialog(this, "Koniec gry! Wykorzystałeś wszystkie życia. Twój wynik to: " + score);
-            System.exit(0); // Kończenie gry
+            JOptionPane.showMessageDialog(this, " Utraciłeś wszystkie życia, koniec gry! Twój wynik to: " + score);
+            System.exit(0);
         }
     }
 
@@ -397,4 +489,3 @@ public class MathRace extends JFrame {
         SwingUtilities.invokeLater(MathRace::new);
     }
 }
-
