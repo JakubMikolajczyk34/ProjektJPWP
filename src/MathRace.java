@@ -9,8 +9,14 @@ import java.util.Iterator;
 import java.util.Random;
 import javax.sound.sampled.*;
 
-
+/**
+ * Klasa reprezentująca główny panel gry Matematyczny Wyścig. Zarządza logiką gry, grafiką
+ * oraz interakcją użytkownika.
+ */
 class MathRacePanel extends JPanel implements ActionListener {
+
+    // Stałe i zmienne odpowiadające za logikę i grafikę gry
+
     private int carX = 472;
     private final int carY = 680;
     private final int carWidth = 55;
@@ -24,29 +30,29 @@ class MathRacePanel extends JPanel implements ActionListener {
     private int nextMathChallengeScore = 50;
     private final int maxScore = 1000;
     private int hearts = 3;
-    private boolean isGameStarted = false; // Flaga dla stanu gry
-    private boolean isGamePaused = false; // Flaga dla zatrzymanej gry
-    private boolean isMuted = false; // Flaga określająca stan muzyk
+    private boolean isGameStarted = false;
+    private boolean isGamePaused = false;
+    private boolean isMuted = false;
     private int currentLevel = 1;
     private final int level1Score = 200;
-    private final int level2Score = 400;
-    private final int level3Score = 600;
+    private final int level2Score = 300;
+    private final int level3Score = 400;
     private int elementSpeed = 10;
-    // Zmienne dla obrazów
     private Image carImage;
     private Image coinImage;
     private Image obstacleImage;
     private Image flagImage;
     private Image heartImage;
-
-    // Zmienna dla przycisku "MENU"
     private JButton menuButton;
 
-    private Clip backgroundMusic; // Pole na odtwarzacz muzyki
+    private Clip backgroundMusic;
 
+    /**
+     * Metoda obsługująca wczytywanie zasobów dźwiękowych i rozpoczęcie odtwarzania
+     * zapętlonej muzyki w tle.
+     */
     private void playBackgroundMusic() {
         try {
-            // Wczytanie pliku dźwiękowego
             AudioInputStream audioStream = AudioSystem.getAudioInputStream(getClass().getResource("/assets/muzyka.wav"));
             backgroundMusic = AudioSystem.getClip();
             backgroundMusic.open(audioStream);
@@ -56,18 +62,29 @@ class MathRacePanel extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Zatrzymuje muzykę w tle.
+     */
     private void stopBackgroundMusic() {
         if (backgroundMusic != null && backgroundMusic.isRunning()) {
             backgroundMusic.stop();
         }
     }
 
+    /**
+     * Wznawia odtwarzanie muzyki w tle, jeśli była wcześniej zatrzymana.
+     */
     private void resumeBackgroundMusic() {
         if (backgroundMusic != null && !backgroundMusic.isRunning()) {
             backgroundMusic.loop(Clip.LOOP_CONTINUOUSLY);
         }
     }
 
+
+    /**
+     * Konstruktor klasy. Inicjalizuje komponenty graficzne, załadowane zasoby
+     * i definiuje logikę działania gry.
+     */
     public MathRacePanel() {
 
         playBackgroundMusic();
@@ -75,9 +92,8 @@ class MathRacePanel extends JPanel implements ActionListener {
         this.setFocusable(true);
         this.setPreferredSize(new Dimension(1050, 800));
         this.setBackground(Color.GRAY);
-        this.setLayout(null); // Używamy layoutu null, aby ręcznie ustawiać komponenty
+        this.setLayout(null);
 
-        // Wczytywanie obrazków i skalowanie ich do odpowiedniego rozmiaru
         carImage = new ImageIcon(getClass().getResource("/assets/car_f1.png")).getImage()
                 .getScaledInstance(carWidth, carHeight, Image.SCALE_SMOOTH);
         coinImage = new ImageIcon(getClass().getResource("/assets/coins.png")).getImage()
@@ -89,7 +105,6 @@ class MathRacePanel extends JPanel implements ActionListener {
         heartImage = new ImageIcon(getClass().getResource("/assets/heart.png")).getImage()
                 .getScaledInstance(30, 30, Image.SCALE_SMOOTH); // Skala serca
 
-        // Przyciski
         menuButton = new JButton("MENU");
         menuButton.setBounds(950, 10, 80, 30);
         menuButton.setFocusable(false);
@@ -98,13 +113,10 @@ class MathRacePanel extends JPanel implements ActionListener {
         menuButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // Akcja wywołująca menu opcji po kliknięciu
                 showMenuOptions();
             }
         });
         this.add(menuButton);
-
-
 
         JButton muteButton = new JButton("WYCISZ");
         muteButton.setBounds(950, 50, 80, 30);
@@ -118,10 +130,9 @@ class MathRacePanel extends JPanel implements ActionListener {
                 stopBackgroundMusic();
                 muteButton.setText("WŁĄCZ MUZYKĘ");
             }
-            isMuted = !isMuted; // Zmiana stanu wyciszenia
+            isMuted = !isMuted;
         });
         this.add(muteButton);
-
 
         JButton startButton = new JButton("START");
         startButton.setBounds(460, 370, 130, 50);
@@ -132,10 +143,10 @@ class MathRacePanel extends JPanel implements ActionListener {
         startButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                isGameStarted = true; // Ustawienie flagi, że gra się rozpoczęła
-                startButton.setVisible(false); // Ukrycie przycisku START
-                timer.start(); // Uruchomienie timera
-                requestFocus(); // Przekierowanie focusu na panel gry
+                isGameStarted = true;
+                startButton.setVisible(false);
+                timer.start();
+                requestFocus();
             }
         });
         this.add(startButton);
@@ -156,59 +167,57 @@ class MathRacePanel extends JPanel implements ActionListener {
         flags = new ArrayList<>();
         random = new Random();
 
-        // Timer nie startuje automatycznie - czeka na kliknięcie START
         timer = new Timer(30, this);
     }
 
+    /**
+     * Wyświetla okno z opcjami gry, umożliwiając wstrzymanie, reset lub zakończenie gry.
+     */
     private void showMenuOptions() {
-        // Zatrzymanie gry po kliknięciu przycisku MENU
+
+        // Logika wyświetlania menu gry
+
         if (isGameStarted && !isGamePaused) {
-            isGamePaused = true; // Ustawiamy flagę, że gra jest zatrzymana
-            timer.stop(); // Zatrzymanie timera
+            isGamePaused = true;
+            timer.stop();
         }
 
-        // Tworzenie panelu z przyciskami
         JPanel menuPanel = new JPanel();
         menuPanel.setLayout(new BoxLayout(menuPanel, BoxLayout.Y_AXIS)); // Układ pionowy
 
-        // Tworzenie przycisków z ustalonym rozmiarem
         Dimension buttonSize = new Dimension(200, 50); // Wszystkie przyciski tej samej wielkości
 
         JButton resumeButton = new JButton("Wznów grę");
         JButton restartButton = new JButton("Zacznij od nowa");
         JButton exitButton = new JButton("Zakończ grę");
 
-        // Ustawienie rozmiarów przycisków
         setButtonProperties(resumeButton, buttonSize);
         setButtonProperties(restartButton, buttonSize);
         setButtonProperties(exitButton, buttonSize);
 
-        // Dodawanie akcji do przycisków
         resumeButton.addActionListener(e -> {
             if (isGamePaused) {
                 isGamePaused = false;
-                timer.start(); // Wznowienie gry po przerwie
+                timer.start();
             }
             SwingUtilities.getWindowAncestor(menuPanel).dispose(); // Zamknięcie okna dialogowego
         });
 
         restartButton.addActionListener(e -> {
-            resetGame(); // Resetowanie gry
+            resetGame();
             SwingUtilities.getWindowAncestor(menuPanel).dispose(); // Zamknięcie okna dialogowego
         });
 
         exitButton.addActionListener(e -> {
-            System.exit(0); // Zakończenie gry
+            System.exit(0);
         });
 
-        // Dodawanie przycisków do panelu
         menuPanel.add(resumeButton);
         menuPanel.add(Box.createRigidArea(new Dimension(0, 10))); // Odstęp między przyciskami
         menuPanel.add(restartButton);
         menuPanel.add(Box.createRigidArea(new Dimension(0, 10))); // Odstęp między przyciskami
         menuPanel.add(exitButton);
 
-        // Wyświetlenie opcji w większym oknie dialogowym
         JOptionPane.showOptionDialog(
                 this,
                 menuPanel,
@@ -216,47 +225,58 @@ class MathRacePanel extends JPanel implements ActionListener {
                 JOptionPane.DEFAULT_OPTION,
                 JOptionPane.PLAIN_MESSAGE,
                 null,
-                new Object[]{}, // Usunięcie domyślnych przycisków
+                new Object[]{},
                 null
         );
     }
 
-    // Metoda konfigurująca przyciski
+    /**
+     * Metoda konfigurująca wizualne danego JButton
+     */
     private void setButtonProperties(JButton button, Dimension size) {
-        button.setPreferredSize(size); // Ustawienie preferowanego rozmiaru
-        button.setMaximumSize(size);   // Ustawienie maksymalnego rozmiaru
-        button.setFocusable(false);    // Wyłączenie domyślnego obramowania focus
-        button.setAlignmentX(Component.CENTER_ALIGNMENT); // Wyśrodkowanie w poziomie
-        button.setBackground(Color.LIGHT_GRAY); // Tło przycisku
-        button.setForeground(Color.BLACK);     // Kolor tekstu
-        button.setFont(new Font("Arial", Font.BOLD, 16)); // Większa czcionka
+        button.setPreferredSize(size);
+        button.setMaximumSize(size);
+        button.setFocusable(false);
+        button.setAlignmentX(Component.CENTER_ALIGNMENT);
+        button.setBackground(Color.LIGHT_GRAY);
+        button.setForeground(Color.BLACK);
+        button.setFont(new Font("Arial", Font.BOLD, 16));
     }
 
-
-
-    // Metoda resetująca grę
+    /**
+     * Metoda odpowiedzialna za rozpoczęcie gry po naciśnięciu przycisku START.
+     */
     private void resetGame() {
+
+        // Logika resetu gry
+
         isGameStarted = false;
         isGamePaused = false;
         score = 0;
         hearts = 3;
-        currentLevel = 1; // Przywrócenie poziomu 1
-        carX = 472; // Ustawienie samochodu w pozycji początkowej
+        currentLevel = 1;
+        carX = 472;
         obstacles.clear();
         coins.clear();
         flags.clear();
         repaint();
 
-        // Po resecie, przycisk Start powinien być widoczny
-        Component startButton = getComponentAt(460, 370);  // Zlokalizowanie przycisku Start
+        Component startButton = getComponentAt(460, 370);
         if (startButton instanceof JButton) {
-            startButton.setVisible(true); // Przywrócenie widoczności przycisku Start
+            startButton.setVisible(true);
         }
     }
 
+    /**
+     * Rysuje elementy gry, w tym samochód gracza, przeszkody, monety i flagi.
+     *
+     * @param g obiekt Graphics używany do rysowania na panelu
+     */
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+
+        // Logika rysowania
 
         if (!isGameStarted || isGamePaused) {
             g.setColor(Color.WHITE);
@@ -265,58 +285,55 @@ class MathRacePanel extends JPanel implements ActionListener {
             return; // Nie rysujemy nic więcej przed startem gry
         }
 
-        // Rysowanie górnej sekcji z wynikiem i sercami
         g.setColor(Color.WHITE);
         g.setFont(new Font("Arial", Font.BOLD, 20));
         g.drawString("Wynik: " + score, 10, 20);
 
-        // Obliczenie pozycji serc na środku ekranu
-        int heartsWidth = hearts * 35; // Oblicz szerokość wszystkich serc razem
-        int heartsX = (getWidth() - heartsWidth) / 2; // Wyśrodkowanie serc
+        int heartsWidth = hearts * 35;
+        int heartsX = (getWidth() - heartsWidth) / 2;
 
-        // Rysowanie serc na środku ekranu
         for (int i = 0; i < hearts; i++) {
             g.drawImage(heartImage, heartsX + i * 35, 10, this);
         }
 
-        // Rysowanie samochodu
         g.drawImage(carImage, carX, carY, carWidth, carHeight, this);
 
-        // Rysowanie przeszkód
         for (Rectangle obstacle : obstacles) {
             g.drawImage(obstacleImage, obstacle.x, obstacle.y, obstacle.width, obstacle.height, this);
         }
 
-        // Rysowanie monet
         for (Rectangle coin : coins) {
             g.drawImage(coinImage, coin.x, coin.y, coin.width, coin.height, this);
         }
 
-        // Rysowanie flagi
         for (Rectangle flag : flags) {
             g.drawImage(flagImage, flag.x, flag.y, flag.width, flag.height, this);
         }
     }
 
-
+    /**
+     * Obsługuje zdarzenia generowane przez Timer, takie jak ruch przeszkód,
+     * zbieranie monet i logika poziomów.
+     *
+     * @param e zdarzenie ActionEvent generowane przez Timer
+     */
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (!isGameStarted || isGamePaused) return; // Gra działa tylko po kliknięciu START
+        if (!isGameStarted || isGamePaused) return;
 
-        // Sprawdzanie, czy osiągnięto maksymalny wynik
+        // Logika obsługi gry
+
         if (score >= maxScore) {
             timer.stop();
             JOptionPane.showMessageDialog(this, "Brawo! Osiągnąłeś maksymalny wynik!");
-            System.exit(0); // Kończenie gry
+            System.exit(0);
         }
 
-        // Wyświetlanie zadania matematycznego przy określonych progach punktowych
         if (score >= nextMathChallengeScore) {
-            showMathChallenge(); // Wywołanie metody, bez sprawdzania zwracanej wartości
-            nextMathChallengeScore += 50; // Ustawienie nowego progu punktowego
+            showMathChallenge();
+            nextMathChallengeScore += 50;
         }
 
-        // Dodawanie nowych przeszkód, monet i flag
         if (random.nextInt(100) < 10) {
             int obstacleX = random.nextInt(getWidth() - 55);
             obstacles.add(new Rectangle(obstacleX, 0, 55, 55));
@@ -332,93 +349,100 @@ class MathRacePanel extends JPanel implements ActionListener {
             flags.add(new Rectangle(flagX, 0, 55, 55));
         }
 
-        // Obsługa progresji poziomów
         if (score >= level3Score) {
             timer.stop();
             JOptionPane.showMessageDialog(this, "Gratulacje! Ukończyłeś wszystkie poziomy!");
-            System.exit(0); // Kończenie gry
+            System.exit(0);
         } else if (score >= level2Score && currentLevel == 2) {
             timer.stop();
             currentLevel++;
-            elementSpeed += 3; // Przyspieszenie na Poziomie 3
-            resetLevel(); // Reset wyniku i innych elementów
+            elementSpeed += 2;
+            resetLevel();
             JOptionPane.showMessageDialog(this, "Poziom 2 ukończony! Czas na Poziom 3.");
             timer.start();
         } else if (score >= level1Score && currentLevel == 1) {
             timer.stop();
             currentLevel++;
-            elementSpeed += 3; // Przyspieszenie na Poziomie 2
-            resetLevel(); // Reset wyniku i innych elementów
+            elementSpeed += 3;
+            resetLevel();
             JOptionPane.showMessageDialog(this, "Poziom 1 ukończony! Czas na Poziom 2.");
             timer.start();
         }
 
-        // Przesuwanie i obsługa kolizji dla przeszkód
         Iterator<Rectangle> obstacleIterator = obstacles.iterator();
         while (obstacleIterator.hasNext()) {
             Rectangle obstacle = obstacleIterator.next();
-            obstacle.y += elementSpeed; // Używamy dynamicznej prędkości
+            obstacle.y += elementSpeed;
             if (obstacle.y > getHeight()) {
                 obstacleIterator.remove();
             } else if (obstacle.intersects(new Rectangle(carX, carY, carWidth, carHeight))) {
-                hearts--; // Utrata życia przy kolizji
+                hearts--;
                 if (hearts == 0) {
                     timer.stop();
                     JOptionPane.showMessageDialog(this, "Koniec gry! Twój wynik to: " + score);
-                    System.exit(0); // Kończenie gry po utracie wszystkich serc
+                    System.exit(0);
                 }
                 obstacleIterator.remove();
             }
         }
 
-        // Przesuwanie i obsługa kolizji dla monet
         Iterator<Rectangle> coinIterator = coins.iterator();
         while (coinIterator.hasNext()) {
             Rectangle coin = coinIterator.next();
-            coin.y += elementSpeed; // Używamy dynamicznej prędkości
+            coin.y += elementSpeed;
             if (coin.y > getHeight()) {
                 coinIterator.remove();
             } else if (coin.intersects(new Rectangle(carX, carY, carWidth, carHeight))) {
                 coinIterator.remove();
-                score += 10; // Dodanie punktów za zebranie monety
+                score += 10;
             }
         }
 
-        // Przesuwanie i obsługa kolizji dla flag
         Iterator<Rectangle> flagIterator = flags.iterator();
         while (flagIterator.hasNext()) {
             Rectangle flag = flagIterator.next();
-            flag.y += elementSpeed; // Używamy dynamicznej prędkości
+            flag.y += elementSpeed;
             if (flag.y > getHeight()) {
                 flagIterator.remove();
             } else if (flag.intersects(new Rectangle(carX, carY, carWidth, carHeight))) {
                 flagIterator.remove();
-                score += 20; // Dodanie punktów za zebranie flagi
+                score += 20;
             }
         }
 
-        repaint(); // Odświeżenie ekranu po każdej klatce
+        repaint();
     }
 
-
+    /**
+     * Metoda odpowiedzialna za resetowanie poziomów.
+     */
     private void resetLevel() {
+
+        // Logika resetowania poziomów
+
         score = 0;
-        nextMathChallengeScore = 50; // Przywrócenie początkowego stanu
+        nextMathChallengeScore = 50;
         obstacles.clear();
         coins.clear();
         flags.clear();
-        hearts = 3; // Reset liczby serc
-        repaint(); // Odświeżenie ekranu
+        hearts = 3;
+        repaint();
     }
 
-    // Funkcja wyświetlająca zadanie matematyczne
+    /**
+     * Wyświetla losowe zadanie matematyczne w zależności od poziomu gry.
+     * Zadanie wywoływane jest w oknie dialogowym, a odpowiedzi gracza są weryfikowane.
+     */
     private void showMathChallenge() {
+
+        // Logika wyświetlania zadania matematycznego
+
         int a = random.nextInt(10) + 1;
         int b = random.nextInt(10) + 1;
         String question = "";
         int correctAnswer = 0;
 
-        if (currentLevel == 1) { // Poziom 1: dodawanie i odejmowanie
+        if (currentLevel == 1) {
             if (random.nextBoolean()) {
                 correctAnswer = a + b;
                 question = a + " + " + b + " = ?";
@@ -426,20 +450,20 @@ class MathRacePanel extends JPanel implements ActionListener {
                 correctAnswer = a - b;
                 question = a + " - " + b + " = ?";
             }
-        } else if (currentLevel == 2) { // Poziom 2: mnożenie i dzielenie
+        } else if (currentLevel == 2) {
             if (random.nextBoolean()) {
                 correctAnswer = a * b;
                 question = a + " * " + b + " = ?";
             } else {
-                // Unikamy dzielenia przez zero i wyników z resztą
+
                 while (a % b != 0) {
                     a = random.nextInt(10) + 1;
-                    b = random.nextInt(9) + 1; // Losujemy ponownie b
+                    b = random.nextInt(9) + 1;
                 }
                 correctAnswer = a / b;
                 question = a + " / " + b + " = ?";
             }
-        } else if (currentLevel == 3) { // Poziom 3: potęgowanie i pierwiastkowanie
+        } else if (currentLevel == 3) {
             if (random.nextBoolean()) {
                 correctAnswer = (int) Math.pow(a, 2);
                 question = a + "² = ?";
@@ -473,8 +497,14 @@ class MathRacePanel extends JPanel implements ActionListener {
 
 }
 
-
+/**
+ * Główna klasa MathRace odpowiedzialna za uruchomienie gry.
+ */
 public class MathRace extends JFrame {
+
+    /**
+     * Konstruktor inicjalizujący główne okno gry.
+     */
     public MathRace() {
         setTitle("Matematyczny wyścig");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -484,6 +514,12 @@ public class MathRace extends JFrame {
         setLocationRelativeTo(null);
         setVisible(true);
     }
+
+    /**
+     * Punkt wejścia do aplikacji. Tworzy i uruchamia grę w odrębnym wątku.
+     *
+     * @param args argumenty wiersza poleceń
+     */
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(MathRace::new);
